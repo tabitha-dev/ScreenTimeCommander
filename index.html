@@ -1,1088 +1,728 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screen Time Commander</title>
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    <!-- Load Tailwind CSS -->
+    <title>Screen Time Commander | Interactive Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 
+        Chosen Palette: Calm Harmony (Light neutrals, blues for accents, green for success, orange for stats)
+        Application Structure Plan: The SPA is designed as a single-page, multi-column dashboard. This structure was chosen to provide an immediate, at-a-glance overview of all key information, which is more effective for a task-tracking app than a linear document. The layout is divided into three main thematic zones: 1) A persistent profile/stats column for gamified progress (streaks, badges). 2) A central column for primary actions (completing missions). 3) A final column for secondary actions and data insights (redeeming rewards, viewing analytics). This task-oriented design allows users to quickly assess their status and perform actions without scrolling, creating a highly usable and efficient experience.
+        Visualization & Content Choices: 
+        - Report Info: Core stats (Earned/Spent/Balance Time, Streak). Goal: Inform. Viz/Presentation: Large-font KPI Cards. Interaction: Stats dynamically update in real-time as missions are completed or rewards are redeemed. Justification: KPI cards are the clearest way to present single, critical numbers. Library/Method: HTML/JS.
+        - Report Info: Daily tasks/missions. Goal: Organize & Interact. Viz/Presentation: Interactive checklists within collapsible accordions. Interaction: Clicking a checkbox marks a mission complete, updates all relevant KPIs, and can unlock badges. Justification: This directly translates the report's task list into an engaging, actionable component. Library/Method: HTML/JS.
+        - Report Info: Achievements & Badges. Goal: Engage & Reward. Viz/Presentation: A grid of stylized badge icons. Interaction: Badges dynamically 'unlock' with a visual effect when criteria are met. Justification: Visual icons significantly enhance the gamified experience described in the report. Library/Method: HTML/JS with Unicode characters.
+        - Report Info: Time earned across categories. Goal: Analyze/Compare. Viz/Presentation: A Donut Chart. Interaction: The chart dynamically updates as missions from different categories are completed, showing the user where they earned the most minutes. Justification: This adds a layer of data visualization required by the prompt and gives users insight into their efforts. Library/Method: Chart.js.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
-        
-        /* CSS Variables for Light/Dark Mode */
+        body { font-family: 'Inter', sans-serif; }
         :root {
-            --bg-primary: #eef4ff; /* Light sky blue for background */
-            --bg-card: #ffffff; /* Pure white for cards */
-            --bg-tint: #f0f4f8; /* Soft tint for accordion headers, inputs */
-            --text-primary: #1e293b; /* Slate 900 equivalent */
-            --text-secondary: #64748b; /* Slate 500 equivalent */
-            --border-soft: #d1d5db; /* Gray 300 equivalent for borders */
-        }
-        [data-theme="dark"] {
-            --bg-primary: #0f172a;
-            --bg-card: #1e293b;
-            --bg-tint: #334155;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border-soft: #374151;
-        }
+            /* FIX: Set light mode BG to pure white and TEXT to pure black for guaranteed highest contrast */
+            --bg-light: #ffffff; 
+            --text-light: #000000; 
+            --card-light: #ffffff; 
+            --border-light: #e2e8f0; 
+            --accent: #3b82f6; /* Base blue accent */
+            --green-success: #22c55e; /* Green 500 */
+            --red-danger: #ef4444; /* Red 500 */
 
-        /* Base Styles using Variables */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            transition: background-color 0.3s, color 0.3s;
+            --bg-dark: #020617; --text-dark: #e2e8f0; --card-dark: #1e293b; --border-dark: #475569;
+            /* New Variable for Title Color */
+            --title-blue-light: #1d4ed8; /* Blue 700 */
+            --title-blue-dark: #93c5fd; /* Blue 300 */
         }
-        .card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-soft);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-            transition: background-color 0.3s, box-shadow 0.3s;
-        }
-        /* Accordion Header uses the tint variable */
-        .accordion-header {
-            background-color: var(--bg-tint);
-        }
-        /* Style input/checkbox backgrounds for contrast */
-        input[type="number"], .task-checkbox {
-            background-color: var(--bg-card);
-            border-color: var(--border-soft);
-        }
-        /* Softer glow for light mode */
-        .glow-text {
-            text-shadow: 0 0 1px rgba(59, 130, 246, 0.5), 0 0 3px rgba(30, 64, 175, 0.3); 
-        }
-
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: var(--text-secondary); border-radius: 4px; }
+        html.light { background-color: var(--bg-light); color: var(--text-light); }
+        html.dark { background-color: var(--bg-dark); color: var(--text-dark); }
         
-        /* Progress Ring Styling */
-        .progress-ring__circle {
-            transition: stroke-dashoffset 0.35s;
-            transform: rotate(-90deg);
-            transform-origin: 50% 50%;
+        /* New custom class for main titles */
+        .main-title { 
+            color: var(--title-blue-light); 
+            transition: color 0.3s;
+        }
+        html.dark .main-title {
+            color: var(--title-blue-dark);
         }
         
-        /* Motion Preference */
-        @media (prefers-reduced-motion) {
-            .transition { transition: none !important; }
-            .transform { transform: none !important; }
-            .progress-ring__circle { transition: none !important; }
-            .button-press:active { transform: none !important; }
+        .card { background-color: var(--card-light); border: 1px solid var(--border-light); transition: background-color 0.3s, border-color 0.3s; }
+        html.dark .card { background-color: var(--card-dark); border-color: var(--border-dark); }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .accordion-button.open + .accordion-content { max-height: 1000px; }
+        
+        /* MISSION CHECKBOX STYLING FIX */
+        .mission-checkbox {
+            color: var(--green-success) !important; /* Set checkmark color */
+            border-color: #94a3b8; /* Tailwind slate-400 for neutral border */
+        }
+        .mission-checkbox:checked {
+            background-color: var(--green-success) !important;
+            border-color: var(--green-success) !important;
         }
 
-        /* Press effect for buttons */
-        .button-press:active {
-            transform: scale(0.98);
+        /* Styling for the completed row text (using dark gray for contrast) */
+        .completed-mission-text { 
+            text-decoration: line-through; 
+            color: #1e293b; /* Dark text for light mode */
+        } 
+        html.dark .completed-mission-text { 
+            color: #94a3b8; /* Light gray text for dark mode */
         }
-        
-        /* Style for Accordion Content */
-        .accordion-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s ease-out, padding 0.4s ease-out;
-        }
-        .accordion-content.expanded {
-            max-height: 1000px; /* Large enough number */
-            padding-top: 0.75rem;
-        }
-        /* Style for Badge Tooltip */
-        .badge-tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-        }
+
+        .badge { filter: grayscale(1); opacity: 0.5; transform: scale(0.9); transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55); }
+        .badge.unlocked { filter: grayscale(0); opacity: 1; transform: scale(1); }
+        .chart-container { position: relative; width: 100%; max-width: 400px; margin-left: auto; margin-right: auto; height: auto; aspect-ratio: 1/1; }
+        .chart-line-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 30vh; min-height: 200px; }
+        /* Fix for modals to ensure they display correctly */
+        .modal { display: none; }
+        .modal.flex { display: flex; }
     </style>
 </head>
-<body class="p-4 sm:p-8">
+<body class="antialiased transition-colors duration-300">
 
-    <div id="app" class="max-w-4xl mx-auto">
-
-        <!-- Header and Theme Toggle -->
-        <header class="flex justify-between items-start mb-8">
-            <div class="text-left">
-                <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-500 tracking-tight glow-text">
-                    Screen Time Commander
-                </h1>
-                <p id="reset-date-info" class="text-sm italic text-gray-500 mt-1"></p>
-            </div>
-            <button id="theme-toggle" aria-label="Toggle light/dark theme" class="card p-3 rounded-full text-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-200 button-press">
-                <span id="theme-icon">🔆</span>
+    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="flex justify-between items-center mb-6 sm:mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold main-title">🛡️ Screen Time Commander</h1>
+            <button id="theme-toggle" class="p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent bg-white dark:bg-slate-700">
+                <span class="light-icon">☀️</span>
+                <span class="dark-icon hidden">🌙</span>
             </button>
         </header>
-        
-        <!-- --- Commander Profile Section (New) --- -->
-        <section id="profile-section" class="card p-6 rounded-xl shadow-2xl mb-8 flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-8">
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
             
-            <!-- Avatar and Name -->
-            <div class="flex items-center space-x-4 flex-shrink-0">
-                <div class="w-16 h-16 bg-blue-500 rounded-full border-4 border-yellow-400 flex items-center justify-center text-4xl shadow-lg">
-                    🛡️
+            <section class="lg:col-span-1 xl:col-span-1 space-y-6 sm:space-y-8">
+                <div class="card p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-xl font-bold mb-4 main-title">Commander Profile</h2>
+                    <div class="text-center mb-6">
+                        <!-- Neutral icon with BLUE ring accent -->
+                        <div class="w-24 h-24 rounded-full bg-slate-100 dark:bg-slate-700 mx-auto flex items-center justify-center text-5xl ring-4 ring-blue-500 dark:ring-blue-700 text-slate-700 dark:text-slate-300">👤</div>
+                        <!-- Editable Commander Name with visual affordance -->
+                        <h3 class="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-200">
+                            <div class="flex items-center justify-center space-x-2">
+                                <span id="commander-name" contenteditable="true" class="hover:bg-slate-200 dark:hover:bg-slate-700 rounded px-1 py-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-accent inline-block cursor-pointer"></span>
+                                <span class="text-sm text-slate-900 dark:text-slate-400">✏️</span>
+                            </div>
+                        </h3>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                            <span class="font-medium text-slate-900 dark:text-slate-300">Current Streak</span>
+                            <span id="streak-count" class="font-bold text-lg text-orange-500">0 Days</span>
+                        </div>
+                         <div class="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium text-slate-900 dark:text-slate-300">Missions Today</span>
+                                <span id="missions-today" class="font-bold text-lg text-green-500">0 / 18</span>
+                            </div>
+                            <!-- Progress Bar for Missions -->
+                            <div class="w-full bg-slate-300 rounded-full h-2.5 dark:bg-slate-600">
+                                <div id="mission-progress-bar" class="h-2.5 rounded-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">COMMANDER</p>
-                    <h2 class="text-2xl font-extrabold text-primary">Mission Agent</h2>
+
+                <div class="card p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-xl font-bold mb-2 main-title">Achievements</h2>
+                     <p class="text-sm text-slate-900 dark:text-slate-400 mb-4">Unlock badges by completing missions and maintaining streaks. This section tracks your accomplishments.</p>
+                    <div id="badges-container" class="grid grid-cols-3 gap-4 text-center"></div>
                 </div>
-            </div>
-
-            <!-- Badges Display -->
-            <div id="badge-display" class="flex-grow flex items-center space-x-2 border-t md:border-t-0 md:border-l border-border-soft pt-4 md:pt-0 md:pl-8">
-                <span class="text-sm font-semibold text-secondary min-w-[50px]">Badges:</span>
-                <!-- Badges rendered here -->
-            </div>
-
-            <!-- Progress Summary -->
-            <div id="progress-summary" class="text-left md:text-right border-t md:border-t-0 md:border-l border-border-soft pt-4 md:pt-0 md:pl-8 flex-shrink-0">
-                <p class="text-sm font-semibold text-gray-500 dark:text-gray-400">Lifetime Progress</p>
-                <p class="text-xl font-bold text-green-600 dark:text-green-400">
-                    <span id="lifetime-tasks">0</span> Missions
-                </p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    <span id="lifetime-mins">0</span> Total Mins Earned
-                </p>
-            </div>
-        </section>
-        
-        <!-- Score Board (Replaced Net Balance with Progress Ring) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            </section>
             
-            <!-- Total Earned Time Card -->
-            <div class="card p-6 rounded-xl shadow-lg border-l-4 border-green-500 transform hover:scale-[1.01] transition duration-300">
-                <p class="text-sm font-semibold text-gray-500 dark:text-gray-400">Total Earned Time</p>
-                <p id="earned-minutes" class="text-4xl font-extrabold mt-1 text-green-600 dark:text-green-400">0</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">minutes available</p>
-            </div>
-            
-            <!-- Total Spent Time Card -->
-            <div class="card p-6 rounded-xl shadow-lg border-l-4 border-red-500 transform hover:scale-[1.01] transition duration-300">
-                <p class="text-sm font-semibold text-gray-500 dark:text-gray-400">Total Spent Time</p>
-                <p id="spent-minutes" class="text-4xl font-extrabold mt-1 text-red-600 dark:text-red-400">0</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">minutes redeemed</p>
-            </div>
+            <section class="lg:col-span-2 xl:col-span-2 space-y-6 sm:space-y-8">
+                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                     <!-- Earned KPI - Green Border -->
+                     <div class="card p-5 rounded-2xl shadow-xl text-center border-green-500 border-2">
+                        <h3 class="font-semibold text-slate-900 dark:text-slate-400">✅ Earned Today</h3>
+                        <p id="earned-time" class="text-4xl font-bold text-green-600 mt-2">0</p>
+                        <p class="text-sm text-slate-900 dark:text-slate-400">minutes</p>
+                    </div>
+                    <!-- Spent KPI - Red Border -->
+                    <div class="card p-5 rounded-2xl shadow-xl text-center border-red-500 border-2">
+                        <h3 class="font-semibold text-slate-900 dark:text-slate-400">🔥 Spent Today</h3>
+                        <p id="spent-time" class="text-4xl font-bold text-red-600 mt-2">0</p>
+                        <p class="text-sm text-slate-900 dark:text-slate-400">minutes</p>
+                    </div>
+                    <!-- Balance KPI - Blue Border -->
+                    <div class="card p-5 rounded-2xl shadow-xl text-center border-blue-500 border-2">
+                        <h3 class="font-semibold text-slate-900 dark:text-slate-400">🏦 Balance</h3>
+                        <p id="balance-time" class="text-4xl font-bold text-blue-600 mt-2">0</p>
+                        <p class="text-sm text-slate-900 dark:text-slate-400">minutes</p>
+                    </div>
+                </div>
 
-            <!-- NET Balance Card (Progress Ring) -->
-            <div id="net-balance-card" class="card p-6 rounded-xl shadow-lg transform hover:scale-[1.01] transition duration-300 relative flex flex-col items-center justify-center">
-                <div class="flex items-center justify-center space-x-2 w-full mb-3">
-                    <span id="streak-icon" class="text-2xl">🧊</span>
-                    <p class="text-sm font-semibold text-gray-500 dark:text-gray-400">Daily Streak: <span id="streak-count" class="font-extrabold">0</span></p>
+                <div id="mission-control" class="card rounded-2xl shadow-xl">
+                     <div class="p-5 border-b border-border-light dark:border-border-dark">
+                        <h2 class="text-xl font-bold main-title">Mission Control</h2>
+                        <p class="text-sm text-slate-900 dark:text-slate-400 mt-1">Complete your daily missions to earn screen time. Each task helps build good habits and contributes to your daily goals.</p>
+                     </div>
+                    <div id="missions-list" class="p-5 space-y-2"></div>
                 </div>
                 
-                <!-- Circular Progress Ring (SVG) -->
-                <svg id="progress-ring" class="w-32 h-32" viewBox="0 0 100 100">
-                    <defs>
-                        <linearGradient id="netGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#3b82f6; stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#6366f1; stop-opacity:1" />
-                        </linearGradient>
-                        <linearGradient id="netLowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#f59e0b; stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#f97316; stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <circle id="ring-track" class="text-gray-200 dark:text-gray-600" stroke-width="8" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50"/>
-                    <circle id="ring-bar" class="progress-ring__circle" stroke-width="8" stroke="url(#netGradient)" fill="transparent" r="45" cx="50" cy="50" style="stroke-dasharray: 283; stroke-dashoffset: 283;"/>
-                </svg>
-                <div class="absolute inset-0 flex flex-col items-center justify-center pt-8">
-                    <p class="text-2xl font-bold text-gray-500 dark:text-gray-400">BALANCE</p>
-                    <p id="net-balance" class="text-5xl font-extrabold text-blue-600 dark:text-blue-400 leading-none mt-1">0</p>
+                <div class="card rounded-2xl shadow-xl p-5">
+                    <h2 class="text-xl font-bold mb-2 main-title">Streak History</h2>
+                    <!-- Dynamic streak info element -->
+                    <p id="streak-info" class="text-sm text-slate-900 dark:text-slate-400 mb-4">View your daily mission completion over the last 7 days.</p>
+                    <div class="chart-line-container">
+                        <canvas id="streakHistoryChart"></canvas>
+                    </div>
                 </div>
-            </div>
-        </div>
+            </section>
 
-        <!-- Task List Section (with Accordions) -->
-        <section id="task-section" class="card p-4 sm:p-6 rounded-xl shadow-2xl mb-8">
-            <h2 class="text-2xl font-extrabold text-gray-800 dark:text-gray-200 mb-2 border-b pb-2">Mission Control</h2>
-            <div id="task-list" class="space-y-1">
-                <!-- Tasks and Accordions will be rendered here -->
-            </div>
-        </section>
-
-        <!-- Reward Redemption Section -->
-        <section class="card p-4 sm:p-6 rounded-xl shadow-2xl">
-            <h2 class="text-2xl font-extrabold text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Redeem Power-Ups</h2>
-            <div class="flex flex-col sm:flex-row gap-4">
-                
-                <input type="number" id="redeem-amount" placeholder="Minutes to redeem (e.g., 30)" 
-                       class="flex-grow p-3 border dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 text-lg shadow-inner" 
-                       min="1" value="30">
-                
-                <button id="redeem-xbox" data-activity="Xbox" 
-                        class="redeem-btn button-press w-full sm:w-auto p-3 text-lg font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition duration-150 shadow-md min-w-[44px] min-h-[44px]">
-                    Redeem for 🎮 Xbox
-                </button>
-                
-                <button id="redeem-youtube" data-activity="YouTube"
-                        class="redeem-btn button-press w-full sm:w-auto p-3 text-lg font-semibold rounded-lg bg-red-500 text-white hover:bg-red-600 transition duration-150 shadow-md min-w-[44px] min-h-[44px]">
-                    Redeem for ▶️ YouTube
-                </button>
-            </div>
-            
-            <!-- ARIA Live Region for Messages -->
-            <div id="message-box-container" role="status" aria-live="polite" class="mt-4 text-center h-6">
-                <p id="message-box" class="font-bold transition duration-300"></p>
-            </div>
-            
-            <button id="undo-button" class="hidden w-full mt-2 py-2 px-4 text-sm font-semibold rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition duration-150 button-press min-w-[44px] min-h-[44px]">
-                UNDO Last Redemption (10s)
-            </button>
-        </section>
-
-        <!-- Hidden Daily Reset Button / Debug -->
-        <div class="text-center mt-6">
-            <button id="force-reset" class="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition duration-150 button-press">
-                Force Daily Reset (Admin Use)
-            </button>
-        </div>
-
+            <section class="lg:col-span-3 xl:col-span-1 space-y-6 sm:space-y-8">
+                <div id="redeem-powerups" class="card rounded-2xl shadow-xl">
+                    <div class="p-5 border-b border-border-light dark:border-border-dark">
+                        <h2 class="text-xl font-bold main-title">Redeem Power-Ups</h2>
+                        <p class="text-sm text-slate-900 dark:text-slate-400 mt-1">Use your earned minutes to activate rewards.</p>
+                    </div>
+                    <div id="redeem-list" class="p-5 grid grid-cols-1 gap-4"></div>
+                </div>
+                <div class="card rounded-2xl shadow-xl p-5">
+                    <h2 class="text-xl font-bold mb-2 main-title">Daily Analytics</h2>
+                    <p class="text-sm text-slate-900 dark:text-slate-400 mb-4">See where your minutes were earned today.</p>
+                    <div class="chart-container">
+                        <canvas id="earnedMinutesChart"></canvas>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button id="reset-day" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-lg">Reset Day</button>
+                 </div>
+            </section>
+        </main>
     </div>
 
-    <!-- Modal for Confirmation (Dialog Pattern) -->
-    <div id="reset-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
-        <div role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"
-             class="card p-6 rounded-xl shadow-2xl max-w-sm w-full">
-            <h3 id="modal-title" class="text-xl font-bold mb-4">Confirm Daily Reset</h3>
-            <p class="mb-6 text-gray-700 dark:text-gray-300">Are you sure you want to manually reset the day? This clears all completed tasks and sets earned time to zero.</p>
-            <div class="flex justify-end space-x-3">
-                <button id="modal-cancel" class="py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition duration-150 button-press min-w-[44px] min-h-[44px]">Cancel</button>
-                <button id="modal-reset-confirm" class="py-2 px-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150 button-press min-w-[44px] min-h-[44px]">Reset Day</button>
+    <!-- Modals -->
+    <div id="reset-modal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="card rounded-2xl shadow-lg p-8 max-w-sm w-full">
+            <h2 class="text-xl font-bold mb-4 main-title">Confirm Daily Reset</h2>
+            <p class="text-slate-900 dark:text-slate-300 mb-6">This will clear today's progress and earned minutes. Your streak will be reset to zero. Are you sure?</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-reset" class="bg-slate-200 dark:bg-slate-600 font-semibold px-4 py-2 rounded-lg">Cancel</button>
+                <button id="confirm-reset" class="bg-red-600 text-white font-semibold px-4 py-2 rounded-lg">Confirm</button>
             </div>
         </div>
     </div>
-
-
-    <script>
-        // PWA Setup: Register Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
-                    console.log('SW registered: ', registration);
-                }).catch(registrationError => {
-                    console.log('SW registration failed: ', registrationError);
-                });
-            });
-        }
-    </script>
     
-    <!-- Inline Service Worker and Manifest for self-contained single file -->
-    <script id="pwa-files">
-        const MANIFEST_CONTENT = {
-            "name": "Screen Time Commander",
-            "short_name": "STMission",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#eef4ff", /* Updated to match new light mode background */
-            "theme_color": "#3b82f6",
-            "icons": [
-                { "src": "https://placehold.co/192x192/3b82f6/ffffff?text=STM", "sizes": "192x192", "type": "image/png" },
-                { "src": "https://placehold.co/512x512/3b82f6/ffffff?text=STM", "sizes": "512x512", "type": "image/png" }
-            ]
-        };
-        const SERVICE_WORKER_CONTENT = `
-            const CACHE_NAME = 'screen-time-v1';
-            const urlsToCache = ['/', 'index.html'];
-
-            self.addEventListener('install', event => {
-                event.waitUntil(
-                    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
-                );
-            });
-
-            self.addEventListener('fetch', event => {
-                event.respondWith(
-                    caches.match(event.request).then(response => response || fetch(event.request))
-                );
-            });
-        `;
-
-        // Create virtual files for PWA setup
-        (function setupPWAFiles() {
-            const blobManifest = new Blob([JSON.stringify(MANIFEST_CONTENT)], { type: 'application/json' });
-            window.URL.createObjectURL(blobManifest); // Not directly used here, but needed in a real GitHub pages setup.
-            
-            const blobSW = new Blob([SERVICE_WORKER_CONTENT], { type: 'application/javascript' });
-            window.URL.createObjectURL(blobSW); // Not directly used here, but needed in a real GitHub pages setup.
-            
-            // Note: Since this is a single HTML file environment, the Service Worker setup is mostly illustrative.
-            // In a real hosting environment (like GitHub Pages), sw.js and manifest.json must be separate files.
-        })();
-    </script>
+    <div id="error-modal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="card rounded-2xl shadow-lg p-8 max-w-sm w-full border-t-4 border-red-500">
+            <h2 class="text-xl font-bold mb-4 text-red-600 dark:text-red-400">⚠️ Insufficient Funds</h2>
+            <p id="error-message" class="text-slate-900 dark:text-slate-300 mb-6">You need to earn more minutes before redeeming this reward.</p>
+            <div class="flex justify-end gap-4">
+                <button id="close-error" class="bg-red-500 text-white font-semibold px-4 py-2 rounded-lg">Got It</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // --- Configuration and State ---
-        const STORAGE_KEY = 'screenTimeCommanderData';
-        const SCHEMA_VERSION = 3; // UPDATED FOR NEW LIFETIME TRACKING
-        const UNDO_TIMEOUT_MS = 10000;
-        const CIRCLE_RADIUS = 45;
-        const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
-
-        // Badge Definitions
-        const BADGE_DEFINITIONS = [
-            { id: 'first_streak', name: '3-Day Commander', description: 'Completed a 3-day perfect task streak.', emoji: '🥉' },
-            { id: 'kindness_hero', name: 'Kindness Hero', description: 'Completed 5 Kindness Missions.', emoji: '❤️' },
-            { id: 'master_reader', name: 'Master Reader', description: 'Completed reading missions 10 times.', emoji: '📖' },
-        ];
-
-        // Task definitions: points correspond to Screen Time Minutes (STM) earned.
-        const TASK_DEFINITIONS = [
-            // --- Morning Boost (Total: 30 min) ---
-            { id: 'ready', text: 'Gear Up: Get dressed & tidy sleeping area ✨', points: 10, category: 'Morning Boost', icon: '✨', defaultExpanded: true },
-            { id: 'bed', text: 'Nest Defense: Make bed neatly 🛏️', points: 5, category: 'Morning Boost', icon: '🛏️' },
-            { id: 'shower_am', text: 'Clean Slate: Shower & brush teeth (AM) 🦷', points: 15, category: 'Morning Boost', icon: '🦷' },
+    document.addEventListener('DOMContentLoaded', () => {
+        const app = {
+            state: {},
+            minutesChartInstance: null,
+            streakChartInstance: null,
             
-            // --- Brain Power (Total: 65 min) ---
-            { id: 'read', text: 'Knowledge Scroll: Read for 20 minutes 📚', points: 15, category: 'Brain Power', icon: '📚', readingTask: true }, // Flag for badge tracking
-            { id: 'portal', text: 'Data Mission: School portal work (15 mins) 💻', points: 15, category: 'Brain Power', icon: '💻' },
-            { id: 'marathi', text: 'Language Quest: Practice Marathi (20 mins) 🇮🇳', points: 20, category: 'Brain Power', icon: '🇮🇳' },
-            { id: 'coding', text: 'Code Mastery: Practice coding (30 mins) 💾', points: 15, category: 'Brain Power', icon: '💾' }, 
+            missions: [
+                { id: 'morning-boost', name: 'Morning Boost', open: true, tasks: [
+                    { id: 'gear-up', name: 'Gear Up: Get dressed & tidy sleeping area ✨', time: 10, completed: false },
+                    { id: 'make-bed', name: 'Nest Defense: Make bed neatly 🛏️', time: 5, completed: false },
+                    { id: 'clean-slate', name: 'Clean Slate: Shower & brush teeth (AM) 🦷', time: 15, completed: false },
+                ]},
+                { id: 'brain-power', name: 'Brain Power', open: false, tasks: [
+                    { id: 'read20', name: 'Knowledge Scroll: Read for 20 minutes 📚', time: 15, completed: false, type: 'reading' },
+                    { id: 'school-portal', name: 'Data Mission: School portal work (15 mins) 💻', time: 15, completed: false },
+                    { id: 'marathi', name: 'Language Quest: Practice Marathi (20 mins) 🇮🇳', time: 20, completed: false },
+                    { id: 'code-mastery', name: 'Code Mastery: Practice coding (30 mins) 💾', time: 15, completed: false },
+                ]},
+                { id: 'home-hero', name: 'Home Hero', open: false, tasks: [
+                    { id: 'area-sweep', name: 'Area Sweep: Tidy a main common space 🧹', time: 10, completed: false },
+                    { id: 'feast-prep', name: 'Feast Prep: Set & clear dinner table 🍽️', time: 5, completed: false },
+                    { id: 'fabric-fold', name: 'Fabric Fold: Help fold one laundry basket 🧺', time: 10, completed: false },
+                ]},
+                { id: 'movement-health', name: 'Movement & Health', open: false, tasks: [
+                    { id: 'energy-burn', name: 'Energy Burn: Play outside or exercise (45 mins) 🏃', time: 10, completed: false },
+                    { id: 'hydration-check', name: 'Hydration Check: Drink water with every meal 💧', time: 5, completed: false },
+                    { id: 'limb-limber', name: 'Limb Limber: 10 minutes of stretching 💪', time: 5, completed: false },
+                ]},
+                { id: 'kindness-evening', name: 'Kindness & Evening', open: false, tasks: [
+                    { id: 'daily-report', name: 'Daily Report: Share one good thing about your day 🗣️', time: 5, completed: false },
+                    { id: 'kindness-mission', name: 'Kindness Mission: Help a family member without being asked ❤️', time: 5, completed: false, type: 'kindness' },
+                    { id: 'launch-prep', name: 'Launch Prep: Pack bag & lay out clothes for tomorrow 🎒', time: 10, completed: false },
+                    { id: 'night-clean', name: 'Night Clean: Brush teeth (PM) thoroughly 🌙', time: 5, completed: false },
+                    { id: 'mission-plan', name: 'Mission Planning: Plan tomorrow\'s top 3 tasks 📝', time: 5, completed: false },
+                ]},
+                { id: 'life-quests', name: 'Life Quests', open: false, tasks: [
+                    // These tasks have non-minute rewards but are assigned 5 minutes for core balance tracking
+                    { id: 'chef-squad', name: 'Chef Squad: Help Dad/Mom prepare dinner for 15 mins 🧑‍🍳 Reward: Choose dinner or dessert tonight', time: 5, completed: false },
+                    { id: 'socialite', name: 'Socialite: Call/Video Chat a relative for 10 mins 📞 Reward: One hour of family game time', time: 5, completed: false },
+                ]}
+            ],
 
-            // --- Home Hero (Total: 25 min) ---
-            { id: 'tidy_area', text: 'Area Sweep: Tidy a main common space 🧹', points: 10, category: 'Home Hero', icon: '🧹' },
-            { id: 'set_table', text: 'Feast Prep: Set & clear dinner table 🍽️', points: 5, category: 'Home Hero', icon: '🍽️' },
-            { id: 'laundry', text: 'Fabric Fold: Help fold one laundry basket 🧺', points: 10, category: 'Home Hero', icon: '🧺' },
+            rewards: [
+                { id: 'xbox', name: 'Xbox Time', cost: 30 },
+                { id: 'youtube', name: 'YouTube Time', cost: 15 }
+            ],
 
-            // --- Movement & Health (Total: 20 min) ---
-            { id: 'play_out', text: 'Energy Burn: Play outside or exercise (45 mins) 🏃', points: 10, category: 'Movement & Health', icon: '🏃' },
-            { id: 'water', text: 'Hydration Check: Drink water with every meal 💧', points: 5, category: 'Movement & Health', icon: '💧' },
-            { id: 'stretch', text: 'Limb Limber: 10 minutes of stretching 💪', points: 5, category: 'Movement & Health', icon: '💪' },
+            badges: [
+                { id: 'streak3', name: '3-Day Commander', emoji: '🥉', unlocked: false, condition: s => s.streak >= 3 },
+                { id: 'streak7', name: '7-Day Captain', emoji: '🥈', unlocked: false, condition: s => s.streak >= 7 },
+                { id: 'perfect', name: 'Perfect Day', emoji: '🌟', unlocked: false, condition: s => s.tasks.every(t => t.completed) },
+                { id: 'kindnessHero', name: 'Kindness Hero', emoji: '💖', unlocked: false, condition: s => s.kindnessMissionsCompleted >= 5 },
+                { id: 'reader', name: 'Bookworm', emoji: '📚', unlocked: false, condition: s => s.readingDaysCompleted >= 5 },
+                { id: 'master', name: 'Master Commander', emoji: '🏆', unlocked: false, condition: s => s.lifetimeTasksCompleted >= 100 },
+            ],
 
-            // --- Kindness & Evening (Total: 25 min) ---
-            { id: 'tell_day', text: 'Daily Report: Share one good thing about your day 🗣️', points: 5, category: 'Kindness & Evening', icon: '🗣️' },
-            { id: 'kindness_mission', text: 'Kindness Mission: Help a family member without being asked ❤️', points: 5, category: 'Kindness & Evening', icon: '❤️', kindnessTask: true }, // Flag for badge tracking
-            { id: 'prep_school', text: 'Launch Prep: Pack bag & lay out clothes for tomorrow 🎒', points: 10, category: 'Kindness & Evening', icon: '🎒' },
-            { id: 'brush_pm', text: 'Night Clean: Brush teeth (PM) thoroughly 🌙', points: 5, category: 'Kindness & Evening', icon: '🌙' },
-            { id: 'plan_tomorrow', text: 'Mission Planning: Plan tomorrow\'s top 3 tasks 📝', points: 5, category: 'Kindness & Evening', icon: '📝' },
-            
-            // --- Life Quests (Non-Screen Rewards) (Total: 20 min) ---
-            { id: 'cook_helper', text: 'Chef Squad: Help Dad/Mom prepare dinner for 15 mins 🧑‍🍳', points: 0, category: 'Life Quests', icon: '🧑‍🍳', nonScreen: true, reward: 'Choose dinner or dessert tonight' },
-            { id: 'social_call', text: 'Socialite: Call/Video Chat a relative for 10 mins 📞', points: 0, category: 'Life Quests', icon: '📞', nonScreen: true, reward: 'One hour of family game time' },
-        ];
-        const MAX_EARNABLE_TIME = TASK_DEFINITIONS.filter(t => !t.nonScreen).reduce((sum, task) => sum + task.points, 0);
+            init() {
+                this.loadState();
+                this.bindEvents();
+                this.render();
+                this.checkDailyReset();
+                this.updateModalDisplay();
+            },
 
-        let state = {
-            tasks: JSON.parse(JSON.stringify(TASK_DEFINITIONS.map(task => ({
-                ...task,
-                completed: false
-            })))),
-            earnedTime: 0,
-            spentTime: 0,
-            lastResetDate: '', // Will be set to YYYY-MM-DD
-            schemaVersion: SCHEMA_VERSION,
-            redemptionHistory: [],
-            streak: 0,
-            theme: 'light', // 'light' or 'dark'
-            accordionState: {}, // { categoryName: true/false }
-            // NEW LIFETIME TRACKING
-            lifetimeMinsEarned: 0,
-            lifetimeTasksCompleted: 0,
-            badges: [], // Array of awarded badge IDs
-            kindnessMissionsCompleted: 0,
-            readingDaysCompleted: 0,
-        };
+            get todayDateString() { return new Date().toISOString().split('T')[0]; },
 
-        let undoTimeoutId = null;
+            updateModalDisplay() {
+                // Ensure modals start hidden but are ready to be flexed when needed
+                document.getElementById('reset-modal').classList.add('modal');
+                document.getElementById('error-modal').classList.add('modal');
+            },
 
-        // --- DOM Elements (Centralized Access) ---
-        const dom = {
-            app: document.getElementById('app'),
-            taskList: document.getElementById('task-list'),
-            earnedMinutes: document.getElementById('earned-minutes'),
-            spentMinutes: document.getElementById('spent-minutes'),
-            netBalance: document.getElementById('net-balance'),
-            resetDateInfo: document.getElementById('reset-date-info'),
-            messageBox: document.getElementById('message-box'),
-            undoButton: document.getElementById('undo-button'),
-            resetModal: document.getElementById('reset-modal'),
-            ringBar: document.getElementById('ring-bar'),
-            netBalanceCard: document.getElementById('net-balance-card'),
-            streakCount: document.getElementById('streak-count'),
-            streakIcon: document.getElementById('streak-icon'),
-            lifetimeTasks: document.getElementById('lifetime-tasks'),
-            lifetimeMins: document.getElementById('lifetime-mins'),
-            badgeDisplay: document.getElementById('badge-display'),
-        };
-        
-        // --- Utility Functions ---
-
-        /**
-         * Converts a Date object to a YYYY-MM-DD string (ISO format).
-         * @param {Date} date 
-         * @returns {string}
-         */
-        function getDateString(date) {
-            return date.toISOString().split('T')[0];
-        }
-
-        function getTodayDateString() {
-            return getDateString(new Date());
-        }
-
-        // --- Theme Management ---
-        function applyTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme);
-            const icon = document.getElementById('theme-icon');
-            if (icon) icon.textContent = theme === 'dark' ? '🌙' : '🔆';
-            state.theme = theme;
-            saveState();
-        }
-
-        function initializeTheme() {
-            const storedTheme = localStorage.getItem('themePreference');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            
-            let initialTheme = 'light';
-            if (storedTheme) {
-                initialTheme = storedTheme;
-            } else if (prefersDark) {
-                initialTheme = 'dark';
-            }
-            
-            applyTheme(initialTheme);
-        }
-
-        // --- State/Storage Management ---
-
-        /**
-         * Loads state from localStorage and handles migrations/resets.
-         */
-        function loadState() {
-            try {
-                const storedData = localStorage.getItem(STORAGE_KEY);
-                const today = getTodayDateString();
-                
-                if (storedData) {
-                    const loadedState = JSON.parse(storedData);
-                    
-                    // 1. Schema Migration (handle new V3 structure)
-                    if (loadedState.schemaVersion !== SCHEMA_VERSION) {
-                        console.log('Migrating data to new schema version:', SCHEMA_VERSION);
-                        // Initialize new V3 properties
-                        loadedState.schemaVersion = SCHEMA_VERSION;
-                        loadedState.lifetimeMinsEarned = loadedState.lifetimeMinsEarned || loadedState.earnedTime || 0;
-                        loadedState.lifetimeTasksCompleted = loadedState.lifetimeTasksCompleted || 0;
-                        loadedState.badges = loadedState.badges || [];
-                        loadedState.kindnessMissionsCompleted = loadedState.kindnessMissionsCompleted || 0;
-                        loadedState.readingDaysCompleted = loadedState.readingDaysCompleted || 0;
-                        loadedState.accordionState = loadedState.accordionState || {};
-                        // Force daily reset on first load after major migration
-                        loadedState.lastResetDate = ''; 
-                    }
-
-                    // 2. Daily Reset Check (uses YYYY-MM-DD for reliability)
-                    if (loadedState.lastResetDate !== today) {
-                        const yesterday = getDateString(new Date(Date.now() - 86400000));
-                        // Earned for yesterday is calculated from stored tasks, before they are reset
-                        const yesterdayTasks = loadedState.tasks || [];
-                        const yesterdayEarned = yesterdayTasks.filter(t => t.completed && !t.nonScreen).reduce((sum, task) => sum + task.points, 0);
-
-                        let newStreak = loadedState.streak;
-                        if (loadedState.lastResetDate === yesterday && yesterdayEarned === MAX_EARNABLE_TIME) {
-                            // Streak continues only if ALL *screen-time earning* tasks were completed yesterday
-                            newStreak = Math.min(loadedState.streak + 1, 7); // Cap streak at 7
-                            showMessage(`Daily login! Streak ${newStreak > 1 ? 'extended!' : 'started!'}`, 'blue');
-                        } else if (loadedState.lastResetDate !== yesterday) {
-                            newStreak = 0; // Break streak if not consecutive
-                        }
-
-                        performDailyReset(false, newStreak);
-                        
-                    } else {
-                        // Load existing state
-                        // Rebuild state.tasks using current TASK_DEFINITIONS to handle updates/deletions
-                        const loadedTaskMap = loadedState.tasks.reduce((acc, task) => {
-                            acc[task.id] = task.completed;
-                            return acc;
-                        }, {});
-
-                        state.tasks = TASK_DEFINITIONS.map(definition => ({
-                            ...definition,
-                            completed: loadedTaskMap[definition.id] || false
-                        }));
-                        
-                        state.earnedTime = loadedState.earnedTime || 0;
-                        state.spentTime = loadedState.spentTime || 0;
-                        state.lastResetDate = loadedState.lastResetDate;
-                        state.streak = loadedState.streak || 0;
-                        state.redemptionHistory = loadedState.redemptionHistory || [];
-                        state.accordionState = loadedState.accordionState || {};
-                        
-                        // Load V3 counters
-                        state.lifetimeMinsEarned = loadedState.lifetimeMinsEarned || 0;
-                        state.lifetimeTasksCompleted = loadedState.lifetimeTasksCompleted || 0;
-                        state.badges = loadedState.badges || [];
-                        state.kindnessMissionsCompleted = loadedState.kindnessMissionsCompleted || 0;
-                        state.readingDaysCompleted = loadedState.readingDaysCompleted || 0;
-
-
-                        // Check theme preference again
-                        const storedThemePreference = localStorage.getItem('themePreference');
-                        if (storedThemePreference) {
-                            state.theme = storedThemePreference;
-                        }
-                    }
-
-                } else {
-                    // Initial load, set up default state
-                    performDailyReset(false, 0);
-                }
-            } catch (e) {
-                console.error("Could not load state:", e);
-                // Fallback to default state if loading fails
-                performDailyReset(false, 0);
-            }
-        }
-
-        /**
-         * Saves state to localStorage.
-         */
-        function saveState() {
-            try {
-                // Only save the necessary data for persistence
-                const dataToSave = {
-                    tasks: state.tasks.map(task => ({ id: task.id, completed: task.completed, nonScreen: task.nonScreen })), // Include nonScreen flag to determine daily reset earned calc
-                    earnedTime: state.earnedTime,
-                    spentTime: state.spentTime,
-                    lastResetDate: state.lastResetDate,
-                    schemaVersion: state.schemaVersion,
-                    redemptionHistory: state.redemptionHistory,
-                    streak: state.streak,
-                    accordionState: state.accordionState,
-                    // V3 data
-                    lifetimeMinsEarned: state.lifetimeMinsEarned,
-                    lifetimeTasksCompleted: state.lifetimeTasksCompleted,
-                    badges: state.badges,
-                    kindnessMissionsCompleted: state.kindnessMissionsCompleted,
-                    readingDaysCompleted: state.readingDaysCompleted,
+            loadState() {
+                const savedState = localStorage.getItem('screenTimeCommanderStateV2');
+                const allTaskIds = this.missions.flatMap(m => m.tasks.map(t => t.id));
+                const defaultState = {
+                    commanderName: '', // FIX: Commander name starts blank
+                    tasks: this.missions.flatMap(m => m.tasks.map(t => ({...t}))),
+                    earnedTime: 0, spentTime: 0, streak: 0,
+                    badges: this.badges.map(b => ({ id: b.id, unlocked: b.unlocked })),
+                    lifetimeMinsEarned: 0, lifetimeTasksCompleted: 0, kindnessMissionsCompleted: 0, readingDaysCompleted: 0,
+                    accordionState: this.missions.reduce((acc, m) => ({ ...acc, [m.id]: m.open }), {}),
+                    lastResetDate: this.todayDateString,
+                    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+                    completionHistory: [0, 0, 0, 0, 0, 0, 0], 
                 };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-                localStorage.setItem('themePreference', state.theme);
-            } catch (e) {
-                console.error("Could not save state:", e);
-            }
-        }
-        
-        /**
-         * Performs a daily reset, clearing tasks and setting time to 0.
-         * @param {boolean} manual 
-         * @param {number} newStreak - The streak to set after reset.
-         */
-        function performDailyReset(manual = false, newStreak = 0) {
-            state.tasks = TASK_DEFINITIONS.map(task => ({
-                ...task,
-                completed: false
-            }));
-            
-            // Add a completion task bonus for long streaks
-            let earnedBonus = 0;
-            if (newStreak >= 3) {
-                earnedBonus = newStreak * 5; // e.g., 3-day streak = 15 min bonus
-                showMessage(`Streak Bonus! +${earnedBonus} minutes for your ${newStreak}-day streak.`, 'green');
-            }
-
-            state.earnedTime = earnedBonus;
-            state.spentTime = 0;
-            state.redemptionHistory = [];
-            state.lastResetDate = getTodayDateString();
-            state.streak = newStreak;
-            
-            // Keep accordion state, but collapse if not explicitly marked expanded
-            for(const cat in state.accordionState) {
-                if (!TASK_DEFINITIONS.find(t => t.category === cat)?.defaultExpanded) {
-                    state.accordionState[cat] = false;
+                
+                this.state = savedState ? JSON.parse(savedState) : defaultState;
+                if (!this.state.completionHistory) this.state.completionHistory = defaultState.completionHistory;
+                if (this.state.commanderName === undefined) this.state.commanderName = defaultState.commanderName; // Ensure new state is applied
+                
+                const savedTaskIds = new Set(this.state.tasks.map(t => t.id));
+                // If the number of missions changes, reset the task list to the new default
+                if (allTaskIds.length !== savedTaskIds.size || !allTaskIds.every(id => savedTaskIds.has(id))) {
+                    this.state.tasks = defaultState.tasks;
                 }
-            }
 
-            saveState();
-            render();
-            hideModal();
+                document.documentElement.className = this.state.theme;
+            },
 
-            if (manual) {
-                showMessage(`ADMIN RESET: New missions available.`, 'green');
-            }
-        }
-
-        /**
-         * Checks criteria and awards badges if necessary.
-         */
-        function checkAndAwardBadges() {
-            let awarded = false;
-
-            // 1. 3-Day Commander Badge (Streak)
-            if (state.streak >= 3 && !state.badges.includes('first_streak')) {
-                state.badges.push('first_streak');
-                awarded = true;
-                showMessage("Achievement Unlocked: 3-Day Commander! 🥉", 'blue');
-            }
-
-            // 2. Kindness Hero (5 Kindness Missions)
-            if (state.kindnessMissionsCompleted >= 5 && !state.badges.includes('kindness_hero')) {
-                state.badges.push('kindness_hero');
-                awarded = true;
-                showMessage("Achievement Unlocked: Kindness Hero! ❤️", 'blue');
-            }
+            saveState() { localStorage.setItem('screenTimeCommanderStateV2', JSON.stringify(this.state)); },
             
-            // 3. Master Reader (10 Reading Days)
-            if (state.readingDaysCompleted >= 10 && !state.badges.includes('master_reader')) {
-                state.badges.push('master_reader');
-                awarded = true;
-                showMessage("Achievement Unlocked: Master Reader! 📖", 'blue');
-            }
+            checkDailyReset() {
+                if (this.state.lastResetDate !== this.todayDateString) {
+                    const allTasksCompleted = this.state.tasks.every(t => t.completed);
+                    
+                    this.state.completionHistory.shift(); 
+                    this.state.completionHistory.push(allTasksCompleted ? 1 : 0); 
+                    
+                    if (allTasksCompleted) {
+                        this.state.streak++;
+                        const readTaskCompleted = this.state.tasks.find(t => t.type === 'reading' && t.completed);
+                        if (readTaskCompleted) this.state.readingDaysCompleted++;
+                    } else {
+                        this.state.streak = 0;
+                    }
+                    this.resetDay(false);
+                }
+            },
             
-            if (awarded) renderProfile(); // Only re-render profile if a badge was given.
-        }
+            resetDay(isManual = true) {
+                if (isManual) { 
+                    this.state.streak = 0; 
+                    this.state.completionHistory.pop();
+                    this.state.completionHistory.push(0);
+                }
+                this.state.earnedTime = 0;
+                this.state.spentTime = 0;
+                this.state.tasks.forEach(t => t.completed = false);
+                this.state.lastResetDate = this.todayDateString;
+                this.updateBadges();
+                this.saveState();
+                this.render();
+            },
 
-        // --- Rendering Functions ---
+            updateTask(taskId, completed) {
+                const task = this.state.tasks.find(t => t.id === taskId);
+                if (!task || task.completed === completed) return;
 
-        /**
-         * Renders the entire application state.
-         */
-        function render() {
-            calculateTime();
-            updateProgressRing();
-            renderScoreBoard();
-            renderProfile(); // NEW RENDER FUNCTION
-            renderTaskList();
-            saveState();
-        }
+                task.completed = completed;
+                const missionTask = this.missions.flatMap(m => m.tasks).find(t => t.id === taskId);
+                const timeChange = missionTask.time * (completed ? 1 : -1);
 
-        /**
-         * Renders the Commander Profile section.
-         */
-        function renderProfile() {
-            dom.lifetimeTasks.textContent = state.lifetimeTasksCompleted;
-            dom.lifetimeMins.textContent = state.lifetimeMinsEarned;
+                this.state.earnedTime += timeChange;
+                this.state.lifetimeMinsEarned += timeChange;
+                this.state.lifetimeTasksCompleted += (completed ? 1 : -1);
+                
+                if(completed && missionTask.type === 'kindness') this.state.kindnessMissionsCompleted++;
+                if(!completed && missionTask.type === 'kindness') this.state.kindnessMissionsCompleted--;
+                
+                this.updateBadges();
+                this.saveState();
+                this.render();
+            },
 
-            dom.badgeDisplay.innerHTML = `
-                <span class="text-sm font-semibold text-secondary min-w-[50px]">Badges:</span>
-                ${BADGE_DEFINITIONS.map(badge => {
-                    const isAwarded = state.badges.includes(badge.id);
-                    const opacity = isAwarded ? 'opacity-100' : 'opacity-30';
-                    const cursor = isAwarded ? 'cursor-pointer' : 'cursor-default';
+            showError(message) {
+                document.getElementById('error-message').textContent = message;
+                document.getElementById('error-modal').classList.add('flex');
+            },
+            
+            hideError() {
+                 document.getElementById('error-modal').classList.remove('flex');
+            },
+
+            redeemReward(rewardCost) {
+                const balance = this.state.earnedTime - this.state.spentTime;
+                if (balance >= rewardCost) {
+                    this.state.spentTime += rewardCost;
+                    this.saveState();
+                    this.render();
+                } else {
+                    this.showError(`You need ${rewardCost - balance} more minutes to redeem this reward.`);
+                }
+            },
+
+            updateBadges() {
+                // FIX: Corrected variable access bug (used badgeState.id instead of badgeDef.id)
+                this.state.badges.forEach(badgeState => {
+                    const badgeDef = this.badges.find(b => b.id === badgeState.id);
+                    if (badgeDef) {
+                        badgeState.unlocked = badgeDef.condition(this.state);
+                    }
+                });
+            },
+
+            toggleAccordion(missionId) {
+                this.state.accordionState[missionId] = !this.state.accordionState[missionId];
+                this.saveState();
+                this.renderMissions();
+            },
+
+            toggleTheme() {
+                this.state.theme = this.state.theme === 'light' ? 'dark' : 'light';
+                document.documentElement.className = this.state.theme;
+                this.saveState();
+                this.renderThemeToggle();
+                this.renderCharts(); // Re-render charts to pick up new theme colors
+            },
+
+            bindEvents() {
+                document.getElementById('theme-toggle').addEventListener('click', () => this.toggleTheme());
+                
+                document.getElementById('commander-name').addEventListener('blur', e => {
+                    let newName = e.target.textContent.trim() || 'Enter Name'; // Fallback if user deletes text
+                    // If name is the placeholder, set it blank on blur, otherwise limit length
+                    this.state.commanderName = newName === 'Enter Name' ? '' : newName.substring(0, 20); 
+                    this.saveState();
+                    this.renderStats();
+                });
+
+                document.getElementById('missions-list').addEventListener('change', e => {
+                    if (e.target.type === 'checkbox') this.updateTask(e.target.dataset.taskId, e.target.checked);
+                });
+                document.getElementById('missions-list').addEventListener('click', e => {
+                    const button = e.target.closest('.accordion-button');
+                    if (button) this.toggleAccordion(button.dataset.missionId);
+                });
+                document.getElementById('redeem-list').addEventListener('click', e => {
+                    const button = e.target.closest('button');
+                    if (button) this.redeemReward(parseInt(button.dataset.cost));
+                });
+                
+                const resetModal = document.getElementById('reset-modal');
+                document.getElementById('reset-day').addEventListener('click', () => resetModal.classList.add('flex'));
+                document.getElementById('cancel-reset').addEventListener('click', () => resetModal.classList.remove('flex'));
+                document.getElementById('confirm-reset').addEventListener('click', () => {
+                    this.resetDay(true);
+                    resetModal.classList.remove('flex');
+                });
+                
+                document.getElementById('close-error').addEventListener('click', () => this.hideError());
+            },
+            
+            render() {
+                this.renderStats();
+                this.renderMissions();
+                this.renderRewards();
+                this.renderBadges(); // Ensures achievements update their unlocked status and appearance
+                this.renderThemeToggle();
+                this.renderCharts();
+                this.renderStreakInfo(); 
+            },
+
+            renderStats() {
+                const balance = this.state.earnedTime - this.state.spentTime;
+                // FIX: If name is blank, show the prompt
+                document.getElementById('commander-name').textContent = this.state.commanderName || 'Enter Name';
+                document.getElementById('earned-time').textContent = this.state.earnedTime;
+                document.getElementById('spent-time').textContent = this.state.spentTime;
+                document.getElementById('balance-time').textContent = balance;
+                document.getElementById('streak-count').textContent = `${this.state.streak} Days`;
+                
+                const completedCount = this.state.tasks.filter(t => t.completed).length;
+                const totalCount = this.state.tasks.length;
+                const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+                
+                document.getElementById('missions-today').textContent = `${completedCount} / ${totalCount}`;
+                document.getElementById('mission-progress-bar').style.width = `${progressPercent}%`;
+            },
+
+            renderMissions() {
+                const container = document.getElementById('missions-list');
+                container.innerHTML = this.missions.map(mission => {
+                    const isOpen = this.state.accordionState[mission.id];
                     return `
-                        <div class="relative group inline-block ${cursor}">
-                            <span class="text-3xl transition-opacity duration-300 ${opacity}" 
-                                title="${badge.name}: ${badge.description}">
-                                ${badge.emoji}
-                            </span>
+                        <div class="border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
+                            <button class="accordion-button w-full flex justify-between items-center p-4 text-left font-semibold ${isOpen ? 'open' : ''}" data-mission-id="${mission.id}">
+                                <span class="text-slate-900 dark:text-slate-300">${mission.name}</span>
+                                <span class="transform transition-transform ${isOpen ? 'rotate-180' : ''}">▼</span>
+                            </button>
+                            <div class="accordion-content bg-slate-50 dark:bg-slate-900/50">
+                                <div class="p-4 space-y-3">
+                                    ${mission.tasks.map(taskDef => {
+                                        const taskState = this.state.tasks.find(t => t.id === taskDef.id);
+                                        const isCompleted = taskState.completed;
+                                        
+                                        // Determine if the reward is a time reward or a special reward based on the presence of a reward description
+                                        const isSpecialReward = taskDef.name.includes("Reward:");
+                                        
+                                        // Find the split point to separate mission title from reward text
+                                        let missionTitle = taskDef.name;
+                                        let rewardDetail = `+${taskDef.time} min`;
+
+                                        if (isSpecialReward) {
+                                            const parts = taskDef.name.split(' Reward:');
+                                            missionTitle = parts[0].trim();
+                                            rewardDetail = `Reward: ${parts[1].trim()}`;
+                                        }
+
+                                        // Apply conditional row highlight and text styling
+                                        const rowClass = isCompleted 
+                                            ? 'bg-green-50 dark:bg-green-900/20' 
+                                            : 'hover:bg-slate-100 dark:hover:bg-slate-800';
+                                        const textClass = isCompleted 
+                                            ? 'completed-mission-text' 
+                                            : 'text-slate-900 dark:text-slate-300';
+                                        
+                                        // Reward detail uses green for positive time values
+                                        const rewardDetailClass = isCompleted 
+                                            ? 'text-green-600 dark:text-green-400' 
+                                            : 'text-blue-600 dark:text-blue-400';
+                                        
+                                        return `
+                                            <div class="flex items-center transition-colors duration-200 p-2 rounded-lg ${rowClass}">
+                                                <input type="checkbox" id="task-${taskState.id}" data-task-id="${taskState.id}" 
+                                                    class="mission-checkbox h-5 w-5 rounded border-gray-300 focus:ring-green-500 mr-3" 
+                                                    ${isCompleted ? 'checked' : ''}>
+                                                
+                                                <label for="task-${taskState.id}" class="flex-grow ${textClass} transition-colors">
+                                                    ${missionTitle} 
+                                                    <span class="text-xs font-semibold ${rewardDetailClass}">(${rewardDetail})</span>
+                                                </label>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            </div>
                         </div>
                     `;
-                }).join('')}
-            `;
-            // Re-render task list in case badges changed, which they won't, but good practice.
-            renderTaskList(); 
-        }
+                }).join('');
+            },
 
-        /**
-         * Updates the earned, spent, and net balance display.
-         */
-        function renderScoreBoard() {
-            const netBalance = state.earnedTime - state.spentTime;
+            renderRewards() {
+                const container = document.getElementById('redeem-list');
+                const balance = this.state.earnedTime - this.state.spentTime;
+                container.innerHTML = this.rewards.map(reward => `
+                    <button data-cost="${reward.cost}" class="w-full text-left p-4 rounded-lg flex justify-between items-center transition-colors ${balance >= reward.cost ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed'}">
+                        <span class="font-bold">${reward.name}</span>
+                        <span class="font-semibold">${reward.cost} min</span>
+                    </button>
+                `).join('');
+            },
 
-            dom.earnedMinutes.textContent = state.earnedTime;
-            dom.spentMinutes.textContent = state.spentTime;
-            dom.netBalance.textContent = netBalance;
+            renderBadges() {
+                const container = document.getElementById('badges-container');
+                container.innerHTML = this.badges.map(badgeDef => {
+                    const badgeState = this.state.badges.find(b => b.id === badgeDef.id);
+                    return `
+                        <div class="badge ${badgeState.unlocked ? 'unlocked' : ''}" title="${badgeDef.name}">
+                            <div class="text-4xl">${badgeDef.emoji}</div>
+                            <div class="text-xs mt-1 font-medium text-slate-900 dark:text-slate-300">${badgeDef.name}</div>
+                        </div>
+                    `;
+                }).join('');
+            },
             
-            // Set date info
-            const todayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            dom.resetDateInfo.textContent = `Tracking for: ${todayDate}`;
-
-            // Update streak display
-            dom.streakCount.textContent = state.streak;
-            if (state.streak >= 3) {
-                dom.streakIcon.textContent = '🔥'; // Fire
-            } else if (state.streak >= 1) {
-                dom.streakIcon.textContent = '🌟'; // Star
-            } else {
-                dom.streakIcon.textContent = '🧊'; // Ice (default/break)
-            }
-
-            // Update Net Balance Card for low balance
-            dom.netBalanceCard.classList.remove('border-l-4', 'border-blue-500', 'border-yellow-500');
-            if (netBalance > 0) {
-                dom.netBalanceCard.classList.add('border-l-4', 'border-blue-500');
-            } else {
-                dom.netBalanceCard.classList.add('border-l-4', 'border-yellow-500');
-            }
-        }
-
-        /**
-         * Updates the circular SVG progress ring based on net balance.
-         */
-        function updateProgressRing() {
-            const netBalance = state.earnedTime - state.spentTime;
-            // Max time to display progress against is earned time (capped by max earnable)
-            const maxForProgress = Math.min(state.earnedTime, MAX_EARNABLE_TIME); 
-            
-            // Percentage of Earned Time remaining (relative to earned time)
-            let percentage = maxForProgress > 0 ? (netBalance / maxForProgress) : 0;
-            percentage = Math.max(0, Math.min(1, percentage)); // Clamp between 0 and 1
-
-            // Calculate offset
-            const offset = CIRCLE_CIRCUMFERENCE * (1 - percentage);
-            
-            if (dom.ringBar) {
-                dom.ringBar.style.strokeDashoffset = offset;
-                
-                // Update color based on balance status
-                const gradientURL = netBalance >= (MAX_EARNABLE_TIME * 0.25) ? 'url(#netGradient)' : 'url(#netLowGradient)';
-                dom.ringBar.setAttribute('stroke', gradientURL);
-            }
-        }
-
-        /**
-         * Renders the dynamic task list with accordions.
-         */
-        function renderTaskList() {
-            dom.taskList.innerHTML = '';
-            
-            // Group tasks by category
-            const categories = state.tasks.reduce((acc, task) => {
-                const cat = task.category;
-                if (!acc[cat]) {
-                    acc[cat] = [];
+            renderThemeToggle() {
+                const lightIcon = document.querySelector('.light-icon');
+                const darkIcon = document.querySelector('.dark-icon');
+                if (this.state.theme === 'light') {
+                    lightIcon.classList.remove('hidden');
+                    darkIcon.classList.add('hidden');
+                } else {
+                    lightIcon.classList.add('hidden');
+                    darkIcon.classList.remove('hidden');
                 }
-                acc[cat].push(task);
-                return acc;
-            }, {});
-
-            for (const category in categories) {
-                const tasks = categories[category];
+            },
+            
+            renderStreakInfo() {
+                const streakInfoElement = document.getElementById('streak-info');
                 
-                const isExpanded = state.accordionState[category] || tasks.some(t => !t.completed); // Expand if incomplete tasks exist
-                state.accordionState[category] = isExpanded; // Ensure state is updated
-
-                // Accordion Header (Button)
-                const headerButton = document.createElement('button');
-                headerButton.className = 'accordion-header w-full flex justify-between items-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition duration-200 button-press min-w-[44px] min-h-[44px]';
-                headerButton.setAttribute('data-category', category);
-                headerButton.setAttribute('aria-expanded', isExpanded);
-                headerButton.innerHTML = `
-                    <h3 class="text-lg font-extrabold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">${category}</h3>
-                    <span class="text-xl transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : 'rotate-0'}">
-                        ⬇️
-                    </span>
-                `;
-                dom.taskList.appendChild(headerButton);
-
-                // Accordion Content (Container for tasks)
-                const contentDiv = document.createElement('div');
-                contentDiv.className = `accordion-content ${isExpanded ? 'expanded' : ''}`;
-                contentDiv.setAttribute('data-category-content', category);
+                // 1. Calculate how many PAST days were perfect (first 6 slots in history)
+                let perfectDaysCount = this.state.completionHistory.slice(0, 6).filter(c => c === 1).length;
                 
-                tasks.forEach(task => {
-                    const taskItem = document.createElement('div');
-                    // Add conditional styling for Non-Screen tasks
-                    const nonScreenClass = task.nonScreen ? 'border-yellow-400 bg-yellow-50/70 dark:bg-yellow-900/40' : '';
-                    const rewardLabel = task.nonScreen ? `Reward: ${task.reward}` : `+${task.points} min`;
+                // 2. Check if TODAY is perfect (live status)
+                const isTodayPerfect = this.state.tasks.every(t => t.completed);
+                if (isTodayPerfect) {
+                    perfectDaysCount += 1;
+                }
+                
+                const totalDays = this.state.completionHistory.length; // 7
+                const currentStreak = this.state.streak; 
+                
+                let message;
+                
+                if (currentStreak > 0) {
+                    // This uses the current streak days directly
+                    message = `You are on a **${currentStreak}-day perfect streak**! Keep up the incredible work.`;
+                } 
+                else if (perfectDaysCount === totalDays) {
+                     message = `You've achieved a perfect score every day for the last week! You'll earn a streak bonus tomorrow.`;
+                }
+                else {
+                    // This provides the recent completion rate when the streak is 0
+                    message = `Your **recent completion rate** is **${perfectDaysCount} out of ${totalDays} days**. Focus on making today perfect!`;
+                }
+                
+                // Use innerHTML for simple bolding
+                message = message.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                
+                streakInfoElement.innerHTML = message;
+            },
 
-                    taskItem.className = `flex items-center justify-between p-3 rounded-lg transition duration-150 border-l-4 bg-card ${
-                        task.completed 
-                            ? `bg-green-100/70 dark:bg-green-900/40 border-green-500 ${nonScreenClass}`
-                            : `${nonScreenClass} hover:bg-gray-50 dark:hover:bg-gray-700 border-transparent`
-                    }`;
-                    
-                    // Use DOM manipulation to create task elements safely
-                    const leftContent = document.createElement('div');
-                    leftContent.className = 'flex items-center';
-
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = `task-${task.id}`;
-                    checkbox.checked = task.completed;
-                    checkbox.className = 'task-checkbox h-6 w-6 text-indigo-600 dark:text-indigo-400 border-gray-300 dark:border-gray-500 rounded-md focus:ring-indigo-500 cursor-pointer min-w-[44px] min-h-[44px]';
-                    checkbox.setAttribute('data-task-id', task.id);
-
-                    const label = document.createElement('label');
-                    label.htmlFor = `task-${task.id}`;
-                    label.className = `ml-3 text-base font-semibold cursor-pointer ${task.completed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`;
-                    label.textContent = task.text; // Use textContent for safety
-
-                    const pointsSpan = document.createElement('span');
-                    pointsSpan.className = `text-sm font-extrabold p-1 px-3 rounded-full ${task.completed ? 'bg-green-500 text-white shadow-md' : 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200'} ${task.nonScreen ? 'bg-yellow-500 text-white' : ''}`;
-                    pointsSpan.textContent = rewardLabel;
-
-                    leftContent.appendChild(checkbox);
-                    leftContent.appendChild(label);
-                    taskItem.appendChild(leftContent);
-                    taskItem.appendChild(pointsSpan);
-
-                    contentDiv.appendChild(taskItem);
+            renderCharts() {
+                this.renderMinutesChart();
+                this.renderStreakChart();
+            },
+            
+            renderMinutesChart() {
+                const ctx = document.getElementById('earnedMinutesChart').getContext('2d');
+                const earnedData = this.missions.map(mission => {
+                    return mission.tasks.reduce((total, taskDef) => {
+                        const taskState = this.state.tasks.find(t => t.id === taskDef.id);
+                        return total + (taskState.completed ? taskDef.time : 0);
+                    }, 0);
                 });
-                dom.taskList.appendChild(contentDiv);
-            }
-        }
-
-        // --- Logic Functions ---
-
-        /**
-         * Calculates total earned time based on completed tasks.
-         */
-        function calculateTime() {
-            state.earnedTime = state.tasks
-                .filter(task => task.completed && !task.nonScreen) // Only count screen-time earning tasks
-                .reduce((total, task) => total + task.points, 0);
-        }
-
-        /**
-         * Handles the completion/uncompletion of a task.
-         * @param {string} taskId 
-         */
-        function toggleTaskCompletion(taskId) {
-            const task = state.tasks.find(t => t.id === taskId);
-            if (task) {
-                task.completed = !task.completed;
                 
-                // Update Lifetime Counters (V3)
-                if (task.completed) {
-                    state.lifetimeTasksCompleted += 1;
-                    if (!task.nonScreen) {
-                        state.lifetimeMinsEarned += task.points;
-                    }
-                    if (task.kindnessTask) {
-                        state.kindnessMissionsCompleted += 1;
-                    }
-                    if (task.readingTask) {
-                        state.readingDaysCompleted += 1;
-                    }
-                } else {
-                    state.lifetimeTasksCompleted -= 1;
-                    if (!task.nonScreen) {
-                        state.lifetimeMinsEarned -= task.points;
-                    }
-                    if (task.kindnessTask) {
-                        state.kindnessMissionsCompleted -= 1;
-                    }
-                    if (task.readingTask) {
-                        state.readingDaysCompleted -= 1;
-                    }
-                }
+                const hasData = earnedData.some(d => d > 0);
+                const chartData = {
+                    labels: this.missions.map(m => m.name),
+                    datasets: [{
+                        data: hasData ? earnedData : this.missions.map(() => 1),
+                        backgroundColor: hasData 
+                            ? ['#34d399', '#60a5fa', '#facc15', '#fb923c', '#8b5cf6', '#ef4444'] 
+                            : ['#e2e8f0'],
+                        borderColor: this.state.theme === 'light' ? 'var(--card-light)' : 'var(--card-dark)',
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                };
 
-                // Recalculate and re-render
-                render();
-                checkAndAwardBadges(); // Check for new badges
-
-                // Show message based on action
-                if (task.completed) {
-                    const rewardMsg = task.nonScreen ? task.reward : `${task.points} minutes!`;
-                    showMessage(`Mission Complete! You earned: ${rewardMsg}`, 'green');
-                } else {
-                    const pointsMsg = task.nonScreen ? `non-screen mission points` : `${task.points} minutes`;
-                    showMessage(`Mission Revoked. ${pointsMsg} removed.`, 'red');
-                }
-            }
-        }
-
-        /**
-         * Handles the redemption of screen time.
-         * @param {string} activity - 'Xbox' or 'YouTube'
-         */
-        function redeemTime(activity) {
-            clearTimeout(undoTimeoutId);
-            dom.undoButton.classList.add('hidden');
-            
-            const inputElement = document.getElementById('redeem-amount');
-            const amount = parseInt(inputElement.value, 10);
-            const netBalance = state.earnedTime - state.spentTime;
-            
-            if (isNaN(amount) || amount <= 0) {
-                showMessage('Input Error: Please enter 1 minute or more.', 'red');
-                return;
-            }
-
-            if (amount > netBalance) {
-                showMessage(`Insufficient Balance: Only ${netBalance} minutes remain.`, 'red');
-                return;
-            }
-
-            // Record history and update state
-            state.redemptionHistory.push({
-                timestamp: new Date().toISOString(),
-                activity,
-                amount,
-                balanceBefore: netBalance
-            });
-            state.spentTime += amount;
-            render();
-            
-            showMessage(`Success! ${amount} minutes redeemed for ${activity} power-up.`, 'blue');
-            inputElement.value = 30; // Reset input
-
-            // Show undo button
-            dom.undoButton.classList.remove('hidden');
-            undoTimeoutId = setTimeout(() => {
-                dom.undoButton.classList.add('hidden');
-            }, UNDO_TIMEOUT_MS);
-        }
-        
-        /**
-         * Reverts the last redemption from history.
-         */
-        function undoRedemption() {
-            clearTimeout(undoTimeoutId);
-            dom.undoButton.classList.add('hidden');
-            
-            const lastRedemption = state.redemptionHistory.pop();
-            
-            if (lastRedemption) {
-                state.spentTime -= lastRedemption.amount;
-                render();
-                showMessage(`Undo Successful! ${lastRedemption.amount} minutes restored.`, 'blue');
-            } else {
-                showMessage('Error: Nothing to undo.', 'red');
-            }
-        }
-
-        // --- UI/Modal Functions & A11Y ---
-
-        /**
-         * Shows a temporary message in the ARIA live region.
-         * @param {string} message 
-         * @param {string} type - 'green', 'red', or 'blue'
-         */
-        function showMessage(message, type) {
-            dom.messageBox.textContent = message;
-            
-            // Clear previous color classes
-            dom.messageBox.classList.remove('text-red-600', 'text-green-600', 'text-blue-600');
-            
-            if (type === 'red') dom.messageBox.classList.add('text-red-600');
-            if (type === 'green') dom.messageBox.classList.add('text-green-600');
-            if (type === 'blue') dom.messageBox.classList.add('text-blue-600');
-
-            // Clear message after 5 seconds
-            clearTimeout(window.messageTimeout);
-            window.messageTimeout = setTimeout(() => {
-                dom.messageBox.textContent = '';
-            }, 5000);
-        }
-
-        /**
-         * Shows the daily reset confirmation modal with focus trap.
-         */
-        function showResetModal() {
-            dom.resetModal.classList.remove('hidden');
-            const modalDialog = dom.resetModal.querySelector('[role="dialog"]');
-            
-            // Set inert on background
-            dom.app.setAttribute('inert', '');
-            
-            // Focus trap setup
-            modalDialog.focus();
-        }
-
-        /**
-         * Hides the modal and removes focus trap.
-         */
-        function hideModal() {
-            dom.resetModal.classList.add('hidden');
-            // Remove inert from background
-            dom.app.removeAttribute('inert');
-            // Return focus to the trigger button (using ID for simplicity)
-            document.getElementById('force-reset').focus();
-        }
-
-        /**
-         * Handles accordion header clicks.
-         */
-        function toggleAccordion(category) {
-            const contentDiv = document.querySelector(`[data-category-content="${category}"]`);
-            const headerButton = document.querySelector(`.accordion-header[data-category="${category}"]`);
-            
-            if (contentDiv && headerButton) {
-                const isExpanded = contentDiv.classList.toggle('expanded');
-                headerButton.setAttribute('aria-expanded', isExpanded);
-                headerButton.querySelector('span').classList.toggle('rotate-180', isExpanded);
-                state.accordionState[category] = isExpanded;
-                saveState();
-            }
-        }
-        
-        // --- Event Listeners Setup (Replaces inline onclick) ---
-        function setupEventListeners() {
-            // Theme Toggle
-            document.getElementById('theme-toggle').addEventListener('click', () => {
-                const newTheme = state.theme === 'light' ? 'dark' : 'light';
-                applyTheme(newTheme);
-            });
-
-            // Task List Delegation (for dynamic checkboxes and accordion headers)
-            dom.taskList.addEventListener('click', (e) => {
-                if (e.target.classList.contains('task-checkbox')) {
-                    toggleTaskCompletion(e.target.dataset.taskId);
-                } else {
-                    const header = e.target.closest('.accordion-header');
-                    if (header) {
-                        toggleAccordion(header.dataset.category);
-                    }
-                }
-            });
-            
-            // Redemption Buttons
-            document.querySelectorAll('.redeem-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    redeemTime(e.currentTarget.dataset.activity);
-                });
-            });
-
-            // Undo Button
-            dom.undoButton.addEventListener('click', undoRedemption);
-
-            // Force Reset Button (Show Modal)
-            document.getElementById('force-reset').addEventListener('click', showResetModal);
-
-            // Modal Buttons
-            document.getElementById('modal-cancel').addEventListener('click', hideModal);
-            document.getElementById('modal-reset-confirm').addEventListener('click', () => performDailyReset(true, 0));
-
-            // Modal Background Click (Accessibility: only hide if clicking the backdrop, not the dialog content)
-            dom.resetModal.addEventListener('click', (e) => {
-                if (e.target === dom.resetModal) {
-                    hideModal();
-                }
-            });
-            
-            // Modal Focus Trap
-            dom.resetModal.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    hideModal();
-                    return;
-                }
-                if (e.key === 'Tab') {
-                    const focusableElements = dom.resetModal.querySelectorAll('button');
-                    const first = focusableElements[0];
-                    const last = focusableElements[focusableElements.length - 1];
-                    
-                    if (e.shiftKey) { // backwards
-                        if (document.activeElement === first) {
-                            last.focus();
-                            e.preventDefault();
-                        }
-                    } else { // forwards
-                        if (document.activeElement === last) {
-                            first.focus();
-                            e.preventDefault();
+                const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: true, position: 'bottom', labels: { color: this.state.theme === 'dark' ? 'white' : 'black' } },
+                        tooltip: {
+                            enabled: hasData,
+                            callbacks: {
+                                label: function(context) { return `${context.label}: ${context.raw} min`; }
+                            }
                         }
                     }
+                };
+                
+                if (this.minutesChartInstance) {
+                    this.minutesChartInstance.destroy();
                 }
-            });
-        }
+                this.minutesChartInstance = new Chart(ctx, { type: 'doughnut', data: chartData, options: chartOptions });
+            },
+            
+            renderStreakChart() {
+                const ctx = document.getElementById('streakHistoryChart').getContext('2d');
+                const days = ['Day -6', 'Day -5', 'Day -4', 'Day -3', 'Day -2', 'Yesterday', 'Today'];
+                // To reflect today's status in the chart without waiting for reset, we use a temporary data array
+                const data = [...this.state.completionHistory.slice(0, 6), this.state.tasks.every(t => t.completed) ? 1 : 0];
+                const lineColor = this.state.theme === 'dark' ? '#3b82f6' : '#2563eb';
+                const gridColor = this.state.theme === 'dark' ? '#334155' : '#e2e8f0';
+                const tickColor = this.state.theme === 'dark' ? 'white' : 'black';
 
+                const chartData = {
+                    labels: days,
+                    datasets: [{
+                        label: 'Completion Status',
+                        data: data,
+                        borderColor: lineColor,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        pointBackgroundColor: lineColor,
+                        pointBorderColor: 'white',
+                        pointHoverRadius: 6,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                    }]
+                };
 
-        // --- Initialization ---
+                const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: -0.1, 
+                            max: 1.1,
+                            ticks: { 
+                                stepSize: 1, 
+                                callback: function(value) { return value === 1 ? 'Perfect' : 'Incomplete'; },
+                                color: tickColor,
+                            },
+                            grid: { color: gridColor },
+                            title: { display: false }
+                        },
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: tickColor }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return context.raw === 1 ? 'Perfect Day Achieved' : 'Day Incomplete'; }
+                            }
+                        }
+                    }
+                };
 
-        window.onload = function() {
-            initializeTheme();
-            setupEventListeners();
-            loadState(); // Load state after setup is complete
-            render();
+                if (this.streakChartInstance) {
+                    this.streakChartInstance.destroy();
+                }
+                this.streakChartInstance = new Chart(ctx, { type: 'line', data: chartData, options: chartOptions });
+            }
         };
 
+        app.init();
+    });
     </script>
 </body>
 </html>
