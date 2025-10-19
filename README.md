@@ -110,7 +110,8 @@ No login, no tracking, no server — everything runs locally with offline persis
 <p align="center">
 
 
-  <<img width="1225" height="544" alt="image" src="https://github.com/user-attachments/assets/feb89ca6-54f6-4e17-989f-5888f2231d0e" />
+<img width="1363" height="931" alt="image" src="https://github.com/user-attachments/assets/201c0d1a-ed56-4530-8800-5107fe043ef6" />
+
 
 </p>
 
