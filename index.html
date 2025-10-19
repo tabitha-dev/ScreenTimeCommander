@@ -9,12 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- 
         Chosen Palette: Calm Harmony (Light neutrals, blues for accents, green for success, orange for stats)
-        Application Structure Plan: The SPA is designed as a single-page, multi-column dashboard. This structure was chosen to provide an immediate, at-a-glance overview of all key information, which is more effective for a task-tracking app than a linear document. The layout is divided into three main thematic zones: 1) A persistent profile/stats column for gamified progress (streaks, badges). 2) A central column for primary actions (completing missions). 3) A final column for secondary actions and data insights (redeeming rewards, viewing analytics). This task-oriented design allows users to quickly assess their status and perform actions without scrolling, creating a highly usable and efficient experience.
+        Application Structure Plan: The SPA is designed as a single-page, multi-column dashboard. This structure was chosen to provide an immediate, at-a-glance overview of all key information, which is more effective for a task-tracking app than a linear document. The layout is divided into three main thematic zones: 1) A persistent profile/stats column for gamified progress (streaks, badges, LIFETIME PROGRESS). 2) A central column for primary actions (completing missions). 3) A final column for secondary actions and data insights (redeeming rewards, HISTORY LOG, analytics). This task-oriented design allows users to quickly assess their status and perform actions without scrolling, creating a highly usable and efficient experience.
         Visualization & Content Choices: 
         - Report Info: Core stats (Earned/Spent/Balance Time, Streak). Goal: Inform. Viz/Presentation: Large-font KPI Cards. Interaction: Stats dynamically update in real-time as missions are completed or rewards are redeemed. Justification: KPI cards are the clearest way to present single, critical numbers. Library/Method: HTML/JS.
         - Report Info: Daily tasks/missions. Goal: Organize & Interact. Viz/Presentation: Interactive checklists within collapsible accordions. Interaction: Clicking a checkbox marks a mission complete, updates all relevant KPIs, and can unlock badges. Justification: This directly translates the report's task list into an engaging, actionable component. Library/Method: HTML/JS.
-        - Report Info: Achievements & Badges. Goal: Engage & Reward. Viz/Presentation: A grid of stylized badge icons. Interaction: Badges dynamically 'unlock' with a visual effect when criteria are met. Justification: Visual icons significantly enhance the gamified experience described in the report. Library/Method: HTML/JS with Unicode characters.
-        - Report Info: Time earned across categories. Goal: Analyze/Compare. Viz/Presentation: A Donut Chart. Interaction: The chart dynamically updates as missions from different categories are completed, showing the user where they earned the most minutes. Justification: This adds a layer of data visualization required by the prompt and gives users insight into their efforts. Library/Method: Chart.js.
+        - Report Info: Achievements & Rewards. Goal: Engage & Reward. Viz/Presentation: Badge grid and REWARD HISTORY LOG. Interaction: Rewards trigger a TOAST notification with balance update. Justification: Visual confirmation and history log improve accountability and satisfaction. Library/Method: HTML/JS with Unicode characters.
+        - Report Info: Time earned across categories. Goal: Analyze/Compare. Viz/Presentation: A Donut Chart with EMPTY STATE COPY. Interaction: The chart dynamically updates as missions from different categories are completed. Justification: Added empty state handling for improved UX. Library/Method: Chart.js.
         - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
     -->
     <style>
@@ -33,6 +33,9 @@
             /* New Variable for Title Color */
             --title-blue-light: #1d4ed8; /* Blue 700 */
             --title-blue-dark: #93c5fd; /* Blue 300 */
+            /* New Variable for Accordion Header Color */
+            --accordion-header-light: #3b82f6; /* Blue 500 */
+            --accordion-header-dark: #93c5fd; /* Blue 300 */
         }
         html.light { background-color: var(--bg-light); color: var(--text-light); }
         html.dark { background-color: var(--bg-dark); color: var(--text-dark); }
@@ -44,6 +47,15 @@
         }
         html.dark .main-title {
             color: var(--title-blue-dark);
+        }
+
+        /* New custom class for accordion titles */
+        .accordion-title {
+            color: var(--accordion-header-light);
+            transition: color 0.3s;
+        }
+        html.dark .accordion-title {
+            color: var(--accordion-header-dark);
         }
         
         .card { background-color: var(--card-light); border: 1px solid var(--border-light); transition: background-color 0.3s, border-color 0.3s; }
@@ -77,6 +89,39 @@
         /* Fix for modals to ensure they display correctly */
         .modal { display: none; }
         .modal.flex { display: flex; }
+
+        /* Toast styles for reward confirmation */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            animation: fadeIn 0.3s, fadeOut 0.5s 2.5s forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; display: none; }
+        }
+        /* Empty state chart overlay */
+        .chart-empty-state {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            text-align: center;
+            padding: 20px;
+        }
     </style>
 </head>
 <body class="antialiased transition-colors duration-300">
@@ -121,6 +166,21 @@
                             <div class="w-full bg-slate-300 rounded-full h-2.5 dark:bg-slate-600">
                                 <div id="mission-progress-bar" class="h-2.5 rounded-full bg-green-500 transition-all duration-500" style="width: 0%"></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADDED: Lifetime Stats KPI -->
+                <div class="card p-5 rounded-2xl shadow-xl border-t-4 border-blue-500">
+                    <h2 class="text-xl font-bold mb-4 main-title">Lifetime Progress</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center text-slate-900 dark:text-slate-300">
+                            <span class="font-medium">Total Missions</span>
+                            <span id="lifetime-tasks-completed" class="font-bold text-lg text-blue-600">0</span>
+                        </div>
+                        <div class="flex justify-between items-center text-slate-900 dark:text-slate-300">
+                            <span class="font-medium">Total Minutes Earned</span>
+                            <span id="lifetime-mins-earned" class="font-bold text-lg text-green-600">0 min</span>
                         </div>
                     </div>
                 </div>
@@ -179,12 +239,23 @@
                         <p class="text-sm text-slate-900 dark:text-slate-400 mt-1">Use your earned minutes to activate rewards.</p>
                     </div>
                     <div id="redeem-list" class="p-5 grid grid-cols-1 gap-4"></div>
+                    <!-- ADDED: Reward History Log Section -->
+                    <div class="p-5 pt-0">
+                        <h3 class="text-lg font-bold mt-4 mb-2 text-slate-900 dark:text-slate-300">Reward History</h3>
+                        <ul id="reward-history" class="text-sm space-y-1 text-slate-900 dark:text-slate-400">
+                             <li class="text-slate-500 italic">No rewards redeemed yet today.</li>
+                        </ul>
+                    </div>
                 </div>
                 <div class="card rounded-2xl shadow-xl p-5">
                     <h2 class="text-xl font-bold mb-2 main-title">Daily Analytics</h2>
                     <p class="text-sm text-slate-900 dark:text-slate-400 mb-4">See where your minutes were earned today.</p>
                     <div class="chart-container">
                         <canvas id="earnedMinutesChart"></canvas>
+                        <!-- ADDED: Empty State Overlay -->
+                        <div id="minutes-chart-empty" class="chart-empty-state text-slate-500 dark:text-slate-500 font-semibold hidden">
+                            Complete any mission to see your progress!
+                        </div>
                     </div>
                 </div>
                 <div class="text-center">
@@ -193,6 +264,9 @@
             </section>
         </main>
     </div>
+
+    <!-- ADDED: Toast Notification Container for success feedback -->
+    <div id="toast-container"></div>
 
     <!-- Modals -->
     <div id="reset-modal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4 z-50">
@@ -230,10 +304,12 @@
                     { id: 'clean-slate', name: 'Clean Slate: Shower & brush teeth (AM) 🦷', time: 15, completed: false },
                 ]},
                 { id: 'brain-power', name: 'Brain Power', open: false, tasks: [
-                    { id: 'read20', name: 'Knowledge Scroll: Read for 20 minutes 📚', time: 15, completed: false, type: 'reading' },
+                    // FIX: Changed time to 20 min to match title
+                    { id: 'read20', name: 'Knowledge Scroll: Read for 20 minutes 📚', time: 20, completed: false, type: 'reading' },
                     { id: 'school-portal', name: 'Data Mission: School portal work (15 mins) 💻', time: 15, completed: false },
                     { id: 'marathi', name: 'Language Quest: Practice Marathi (20 mins) 🇮🇳', time: 20, completed: false },
-                    { id: 'code-mastery', name: 'Code Mastery: Practice coding (30 mins) 💾', time: 15, completed: false },
+                    // FIX: Changed time to 30 min to match title
+                    { id: 'code-mastery', name: 'Code Mastery: Practice coding (30 mins) 💾', time: 30, completed: false },
                 ]},
                 { id: 'home-hero', name: 'Home Hero', open: false, tasks: [
                     { id: 'area-sweep', name: 'Area Sweep: Tidy a main common space 🧹', time: 10, completed: false },
@@ -241,7 +317,8 @@
                     { id: 'fabric-fold', name: 'Fabric Fold: Help fold one laundry basket 🧺', time: 10, completed: false },
                 ]},
                 { id: 'movement-health', name: 'Movement & Health', open: false, tasks: [
-                    { id: 'energy-burn', name: 'Energy Burn: Play outside or exercise (45 mins) 🏃', time: 10, completed: false },
+                    // FIX: Changed time to 45 min to match title
+                    { id: 'energy-burn', name: 'Energy Burn: Play outside or exercise (45 mins) 🏃', time: 45, completed: false },
                     { id: 'hydration-check', name: 'Hydration Check: Drink water with every meal 💧', time: 5, completed: false },
                     { id: 'limb-limber', name: 'Limb Limber: 10 minutes of stretching 💪', time: 5, completed: false },
                 ]},
@@ -293,7 +370,7 @@
                 const savedState = localStorage.getItem('screenTimeCommanderStateV2');
                 const allTaskIds = this.missions.flatMap(m => m.tasks.map(t => t.id));
                 const defaultState = {
-                    commanderName: '', // FIX: Commander name starts blank
+                    commanderName: '', 
                     tasks: this.missions.flatMap(m => m.tasks.map(t => ({...t}))),
                     earnedTime: 0, spentTime: 0, streak: 0,
                     badges: this.badges.map(b => ({ id: b.id, unlocked: b.unlocked })),
@@ -302,11 +379,13 @@
                     lastResetDate: this.todayDateString,
                     theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
                     completionHistory: [0, 0, 0, 0, 0, 0, 0], 
+                    rewardHistory: [] // ADDED: Initialize reward history
                 };
                 
                 this.state = savedState ? JSON.parse(savedState) : defaultState;
                 if (!this.state.completionHistory) this.state.completionHistory = defaultState.completionHistory;
-                if (this.state.commanderName === undefined) this.state.commanderName = defaultState.commanderName; // Ensure new state is applied
+                if (this.state.commanderName === undefined) this.state.commanderName = defaultState.commanderName; 
+                if (!this.state.rewardHistory) this.state.rewardHistory = defaultState.rewardHistory; // ADDED: Handle upgrade
                 
                 const savedTaskIds = new Set(this.state.tasks.map(t => t.id));
                 // If the number of missions changes, reset the task list to the new default
@@ -346,6 +425,7 @@
                 this.state.earnedTime = 0;
                 this.state.spentTime = 0;
                 this.state.tasks.forEach(t => t.completed = false);
+                this.state.rewardHistory = []; // ADDED: Clear daily reward history
                 this.state.lastResetDate = this.todayDateString;
                 this.updateBadges();
                 this.saveState();
@@ -380,13 +460,37 @@
             hideError() {
                  document.getElementById('error-modal').classList.remove('flex');
             },
+            
+            // ADDED: Reward Toast Logic
+            showRedemptionSuccess(rewardName, cost, newBalance) {
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'toast bg-green-500 text-white p-4 rounded-lg shadow-xl mb-3 flex items-center space-x-2';
+                toast.innerHTML = `
+                    <span class="text-xl">🎉</span>
+                    <span class="font-semibold">Redeemed: ${rewardName} for ${cost} min. Balance: ${newBalance} min.</span>
+                `;
+                toastContainer.appendChild(toast);
+                setTimeout(() => toast.remove(), 3500);
+            },
 
             redeemReward(rewardCost) {
                 const balance = this.state.earnedTime - this.state.spentTime;
                 if (balance >= rewardCost) {
+                    const reward = this.rewards.find(r => r.cost === rewardCost);
+                    
                     this.state.spentTime += rewardCost;
+                    
+                    // ADDED: Log reward history
+                    this.state.rewardHistory.push({
+                        name: reward.name,
+                        cost: rewardCost,
+                        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                    });
+                    
                     this.saveState();
                     this.render();
+                    this.showRedemptionSuccess(reward.name, rewardCost, balance - rewardCost); // ADDED: Show visual feedback
                 } else {
                     this.showError(`You need ${rewardCost - balance} more minutes to redeem this reward.`);
                 }
@@ -420,9 +524,15 @@
                 document.getElementById('theme-toggle').addEventListener('click', () => this.toggleTheme());
                 
                 document.getElementById('commander-name').addEventListener('blur', e => {
-                    let newName = e.target.textContent.trim() || 'Enter Name'; // Fallback if user deletes text
-                    // If name is the placeholder, set it blank on blur, otherwise limit length
-                    this.state.commanderName = newName === 'Enter Name' ? '' : newName.substring(0, 20); 
+                    // FIX: Name Guarding (strip HTML tags and limit length)
+                    let newName = e.target.textContent.trim();
+                    // Simple HTML strip using DOM element for safety
+                    const tempDiv = document.createElement('div');
+                    tempDiv.textContent = newName;
+                    const cleanName = tempDiv.innerHTML.substring(0, 20); // Cap at 20 characters
+                    
+                    this.state.commanderName = cleanName || '';
+                    e.target.textContent = cleanName || 'Enter Name'; // Update display instantly
                     this.saveState();
                     this.renderStats();
                 });
@@ -458,6 +568,7 @@
                 this.renderThemeToggle();
                 this.renderCharts();
                 this.renderStreakInfo(); 
+                this.renderRewardHistory(); // ADDED: Render history
             },
 
             renderStats() {
@@ -475,6 +586,10 @@
                 
                 document.getElementById('missions-today').textContent = `${completedCount} / ${totalCount}`;
                 document.getElementById('mission-progress-bar').style.width = `${progressPercent}%`;
+
+                // ADDED: Lifetime stats rendering
+                document.getElementById('lifetime-tasks-completed').textContent = this.state.lifetimeTasksCompleted;
+                document.getElementById('lifetime-mins-earned').textContent = `${this.state.lifetimeMinsEarned} min`;
             },
 
             renderMissions() {
@@ -484,7 +599,8 @@
                     return `
                         <div class="border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
                             <button class="accordion-button w-full flex justify-between items-center p-4 text-left font-semibold ${isOpen ? 'open' : ''}" data-mission-id="${mission.id}">
-                                <span class="text-slate-900 dark:text-slate-300">${mission.name}</span>
+                                <!-- ACCORDION TITLE COLOR FIX -->
+                                <span class="accordion-title">${mission.name}</span>
                                 <span class="transform transition-transform ${isOpen ? 'rotate-180' : ''}">▼</span>
                             </button>
                             <div class="accordion-content bg-slate-50 dark:bg-slate-900/50">
@@ -548,6 +664,23 @@
                         <span class="font-semibold">${reward.cost} min</span>
                     </button>
                 `).join('');
+            },
+            
+            // ADDED: Render Reward History
+            renderRewardHistory() {
+                const historyContainer = document.getElementById('reward-history');
+                if (!historyContainer) return;
+
+                if (this.state.rewardHistory.length === 0) {
+                     historyContainer.innerHTML = '<li class="text-slate-500 italic">No rewards redeemed yet today.</li>';
+                } else {
+                    historyContainer.innerHTML = this.state.rewardHistory.slice().reverse().map(log => `
+                        <li class="flex justify-between items-center py-0.5">
+                            <span class="font-medium text-green-600 dark:text-green-400">${log.name}</span>
+                            <span class="text-xs font-mono text-slate-600 dark:text-slate-500">${log.timestamp} - ${log.cost} min</span>
+                        </li>
+                    `).join('');
+                }
             },
 
             renderBadges() {
@@ -625,10 +758,14 @@
                 });
                 
                 const hasData = earnedData.some(d => d > 0);
+                
+                // ADDED: Handle Empty State Visibility
+                document.getElementById('minutes-chart-empty').classList.toggle('hidden', hasData);
+
                 const chartData = {
                     labels: this.missions.map(m => m.name),
                     datasets: [{
-                        data: hasData ? earnedData : this.missions.map(() => 1),
+                        data: hasData ? earnedData : [1], // If no data, render a single neutral slice
                         backgroundColor: hasData 
                             ? ['#34d399', '#60a5fa', '#facc15', '#fb923c', '#8b5cf6', '#ef4444'] 
                             : ['#e2e8f0'],
@@ -643,9 +780,9 @@
                     maintainAspectRatio: false,
                     cutout: '70%',
                     plugins: {
-                        legend: { display: true, position: 'bottom', labels: { color: this.state.theme === 'dark' ? 'white' : 'black' } },
+                        legend: { display: hasData, position: 'bottom', labels: { color: this.state.theme === 'dark' ? 'white' : 'black' } },
                         tooltip: {
-                            enabled: hasData,
+                            enabled: hasData, // Disable tooltips if empty
                             callbacks: {
                                 label: function(context) { return `${context.label}: ${context.raw} min`; }
                             }
